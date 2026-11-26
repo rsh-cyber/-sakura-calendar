@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>日历感知 · 事件管理</title>
+  <link rel="stylesheet" href="editor.css">
+  <script src="editor.js" defer></script>
+</head>
+<body>
+  <main class="page">
+    <header class="page-header">
+      <div>
+        <div class="page-context">Sakura 日历感知</div>
+        <h1>事件管理</h1>
+        <p id="today" class="today" hidden></p>
+      </div>
+      <button type="button" class="primary add" id="add-event" disabled>
+        <span class="plus" aria-hidden="true"></span>添加事件
+      </button>
+    </header>
+    <div id="status" class="page-status" role="status" aria-live="polite">正在读取角色和事件…</div>
+    <button type="button" id="retry" class="secondary" hidden>重新读取</button>
+    <p id="no-character" class="group no-character" hidden>请先在 Sakura 选择一个角色。</p>
+    <section id="role-settings" class="group role-settings" aria-labelledby="role-title" hidden>
+      <header class="role-header">
+        <h2 id="role-title"><span>当前角色</span><strong id="character-name"></strong></h2>
+        <div class="role-timezone field">
+          <label for="settings-timezone">时区</label>
+          <select id="settings-timezone" data-setting="timezone">
+            <option value="Asia/Shanghai">北京时间</option>
+            <option value="Asia/Tokyo">东京时间</option>
+            <option value="local">跟随 Windows 时间</option>
+          </select>
+        </div>
+      </header>
+      <div class="role-switches">
+        <label class="role-switch role-switch-main">
+          <input id="settings-enabled" type="checkbox" role="switch" data-setting="enabled">
+          启用日历感知
+        </label>
+        <label class="role-switch">
+          <input id="settings-daily_enabled" type="checkbox" role="switch" data-setting="daily_enabled">
+          每日事件
+        </label>
+        <label class="role-switch">
+          <input id="settings-annual_enabled" type="checkbox" role="switch" data-setting="annual_enabled">
+          年度事件
+        </label>
+        <label class="role-switch">
+          <input id="settings-custom_enabled" type="checkbox" role="switch" data-setting="custom_enabled">
+          自定义事件
+        </label>
+      </div>
+      <p id="settings-status" class="section-note settings-status" role="status" aria-live="polite"></p>
+    </section>
+    <div id="groups" class="groups" hidden></div>
+    <section id="holidays" class="group holidays" aria-labelledby="holidays-title" hidden>
+      <header class="holidays-header">
+        <div>
+          <h2 id="holidays-title">节日提醒</h2>
+          <p class="section-note">切换或关闭地区后，各地区已选的节日会保留。</p>
+        </div>
+        <div class="holiday-region field">
+          <label for="holiday-region">提醒地区</label>
+          <select id="holiday-region">
+            <option value="off">关闭</option>
+            <option value="cn">中国</option>
+            <option value="jp">日本</option>
+          </select>
+        </div>
+      </header>
+      <p id="holiday-status" class="section-note holiday-status" role="status" aria-live="polite"></p>
+      <ul id="holiday-list" class="event-list holiday-list" aria-label="所选地区的节日" hidden></ul>
+    </section>
+  </main>
+
+  <dialog id="editor" aria-labelledby="editor-title">
+    <form id="event-form">
+      <header class="dialog-header">
+        <h2 id="editor-title">添加事件</h2>
+      </header>
+      <div class="dialog-body">
+        <div id="choose-type">
+          <div class="choices" aria-label="选择事件类型">
+            <button type="button" class="type-choice" data-kind="daily">
+              <strong>每日事件</strong>
+              <span>选择每天的提醒时刻</span>
+            </button>
+            <button type="button" class="type-choice" data-kind="annual">
+              <strong>年度事件</strong>
+              <span>每年在选定的月日提醒</span>
+            </button>
+            <button type="button" class="type-choice" data-kind="custom">
+              <strong>自定义事件</strong>
+              <span>选择日期和提醒时间，也可设为每天</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="event-fields" class="event-fields" hidden>
+          <div id="date-mode-row" class="field" hidden>
+            <label for="date-mode">日期安排</label>
+            <select id="date-mode">
+              <option value="specific">指定日期</option>
+              <option value="daily">每日</option>
+              <option id="legacy-annual" value="annual" hidden disabled>每年重复</option>
+            </select>
+          </div>
+
+          <fieldset id="calendar" class="calendar" hidden>
+            <legend id="date-label">日期 <span aria-hidden="true">*</span></legend>
+            <div class="calendar-nav">
+              <button id="month-prev" class="arrow" type="button" aria-label="上个月">‹</button>
+              <select id="calendar-year" aria-label="年"></select>
+              <select id="calendar-month" aria-label="月"></select>
+              <button id="month-next" class="arrow" type="button" aria-label="下个月">›</button>
+            </div>
+            <div id="weekdays" class="weekdays" aria-hidden="true">
+              <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>
+            </div>
+            <div id="calendar-days" class="calendar-days" aria-label="选择日期"></div>
+            <p id="date-choice" class="date-choice" aria-live="polite">请选择日期</p>
+          </fieldset>
+
+          <div id="time-mode-row" class="field" hidden>
+            <label for="time-mode">提醒时间</label>
+            <select id="time-mode">
+              <option value="specific">指定时间</option>
+              <option value="any">任意时间（空闲时提醒）</option>
+            </select>
+          </div>
+          <div id="time-row" class="field">
+            <label for="event-time">具体时间 <span aria-hidden="true">*</span></label>
+            <input id="event-time" name="time" type="time" step="60" required>
+          </div>
+
+          <div id="name-row" class="field" hidden>
+            <label id="name-label" for="event-name">日子名称</label>
+            <input id="event-name" name="name" type="text" maxlength="120" autocomplete="off">
+          </div>
+          <div class="field">
+            <label id="description-label" for="description">描述</label>
+            <textarea id="description" name="description" rows="3" maxlength="500" required></textarea>
+          </div>
+          <label id="enabled-row" class="check" hidden>
+            <input id="event-enabled" type="checkbox" checked> 启用此事件
+          </label>
+          <p id="editor-error" class="error" role="alert" hidden></p>
+        </div>
+      </div>
+
+      <footer class="dialog-actions">
+        <button type="button" id="editor-back" class="secondary back" hidden>返回选类型</button>
+        <button type="button" id="editor-cancel" class="secondary">取消</button>
+        <button type="submit" id="event-save" class="primary" hidden>保存事件</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog id="delete-dialog" aria-labelledby="delete-title">
+    <div class="dialog-header">
+      <h2 id="delete-title">删除事件</h2>
+    </div>
+    <div class="dialog-body">
+      <p id="delete-message"></p>
+      <p id="delete-error" class="error" role="alert" hidden></p>
+    </div>
+    <div class="dialog-actions">
+      <button type="button" id="delete-cancel" class="secondary" autofocus>取消</button>
+      <button type="button" id="delete-confirm" class="destructive">删除事件</button>
+    </div>
+  </dialog>
+</body>
+</html>

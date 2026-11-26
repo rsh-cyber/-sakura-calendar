@@ -1,0 +1,20 @@
+api: 4
+id: sakura.calendar
+name: 日历感知
+author: rsh
+description: 为当前角色管理每日、年度、自定义事件及中国或日本节日提醒。
+version: 1.0.0
+entry: plugin:CalendarPlugin
+enabled: true
+priority: 88
+provides: []
+requires:
+  - sakura.host.chat
+  - sakura.host.conversation
+  - sakura.host.context
+  - sakura.host.settings
+  - sakura.host.logging
+presentation:
+  kind: extension
+  category: other
+  icon: calendar
